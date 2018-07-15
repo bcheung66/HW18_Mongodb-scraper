@@ -3,71 +3,70 @@ var cheerio = require("cheerio");
 // Makes HTTP request for HTML page
 var request = require("request");
 
-// First, tell the console what server.js is doing
-console.log("\n***********************************\n" +
-            "Grabbing every thread name and link\n" +
-            "from reddit's webdev board:" +
-            "\n***********************************\n");
+// Requiring the `Headline` model for accessing the `Headlines` collection
+var database = require("./models/headlineModel");
+/* db.init().insertMany(); */
+var db = database.init().db();
 
 // Making a request for reddit's "webdev" board. The page's HTML is passed as the callback's third argument
-request("https://old.reddit.com/r/webdev/", function(error, response, html) {
+var scraping = {
 
-  // Load the HTML into cheerio and save it to a variable
-  // '$' becomes a shorthand for cheerio's selector commands, much like jQuery's '$'
-  var $ = cheerio.load(html);
+  startScrape: function () {
+    request("https://nytimes.com", function (error, response, html) {
 
-  // An empty array to save the data that we'll scrape
-  var results = [];
+      // First, tell the console what server.js is doing
+      console.log("\n***********************************\n" +
+        "Grabbing every thread name and link\n" +
+        "from nytimes:" +
+        "\n***********************************\n");
 
-  // With cheerio, find each p-tag with the "title" class
-  // (i: iterator. element: the current element)
-  $("p.title").each(function(i, element) {
+      // Load the HTML into cheerio and save it to a variable
+      // '$' becomes a shorthand for cheerio's selector commands, much like jQuery's '$'
+      var $ = cheerio.load(html);
 
-    // Save the text of the element in a "title" variable
-    var title = $(element).text();
+      // An empty array to save the data that we'll scrape
+      var results = [];
 
-    // In the currently selected element, look at its child elements (i.e., its a-tags),
-    // then save the values for any "href" attributes that the child elements may have
-    var link = $(element).children().attr("href");
+      // With cheerio, find each p-tag with the "title" class
+      // (i: iterator. element: the current element)
+      $("article").each(function (i, element) {
+        /* console.log(element) */
+        // Save the text of the element in a "title" variable
+        var title = $(element).text();
 
-    // Save these results in an object that we'll push into the results array we defined earlier
-    results.push({
-      title: title,
-      link: link
-    });
-  });
+        // In the currently selected element, look at its child elements (i.e., its a-tags),
+        // then save the values for any "href" attributes that the child elements may have
+        var link = $(element).children().attr("href");
 
-  // With cheerio, find each h4-tag with the class "headline-link" and loop through the results
-  $("h4.headline-link").each(function(i, element) {
+        // Save these results in an object that we'll push into the results array we defined earlier
+        results.push({
+          title: title,
+          link: link
+        });
+      });
 
-    // Save the text of the h4-tag as "title"
-    var title = $(element).text();
+      // Log the results once you've looped through each of the elements found with cheerio
+      console.log("Scraping Finished");
 
-    // Find the h4 tag's parent a-tag, and save it's href value as "link"
-    var link = $(element).parent().attr("href");
+      // Insert into database
+      results.forEach(headline => {
+        db.headlines.insert({
+          headline: headline.title,
+          comments: headline.link
+        },
+          function (err, inserted) {
+            if (err) {
+              // Log the error if one is encountered during the query
+              console.log(err);
+            }
+            else {
+              // Otherwise, log the inserted data
+              /* console.log(inserted); */
+            }
+          });
+      })
+    })
+  }
+}
 
-    // Make an object with data we scraped for this h4 and push it to the results array
-    results.push({
-      title: title,
-      link: link
-    });
-  });
-
-  $("figure.rollover").each(function(i, element) {
-
-    /* Cheerio's find method will "find" the first matching child element in a parent.
-     *    We start at the current element, then "find" its first child a-tag.
-     *    Then, we "find" the lone child img-tag in that a-tag.
-     *    Then, .attr grabs the imgs srcset value.
-     *    The srcset value is used instead of src in this case because of how they're displaying the images
-     *    Visit the website and inspect the DOM if there's any confusion
-    */
-    var imgLink = $(element).find("a").find("img").attr("data-srcset").split(",")[0].split(" ")[0];
-
-    // Push the image's URL (saved to the imgLink var) into the results array
-    results.push({ link: imgLink });
-  });
-
-  // Log the results once you've looped through each of the elements found with cheerio
-  console.log(results);
-});
+module.exports = scraping;

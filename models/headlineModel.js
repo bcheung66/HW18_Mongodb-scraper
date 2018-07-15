@@ -1,6 +1,9 @@
 var mongoose = require("mongoose");
+var mongojs = require("mongojs");
 
 var hlineModel;
+var ntModel;
+var mongojsDb;
 var database = {
   init: function () {
     // Database Name
@@ -22,7 +25,8 @@ var database = {
     var headlineSchema = {
       headline: {
         type: String,
-        trim: true
+        trim: true,
+        /* unique: true, */
         /* required: "headline is Required" */
       },
 
@@ -44,6 +48,15 @@ var database = {
         /* required: "url is Required" */
         /* unique: true
         match: [/.+@.+\..+/, "Please enter a valid e-mail address"] */
+      }
+    };
+
+    var noteSchema = {
+      headlineId: {
+        type: String,
+        trim: true,
+        /* unique: true, */
+        /* required: "headline is Required" */
       },
 
       comments: {
@@ -54,9 +67,27 @@ var database = {
     };
 
     var hlineSchema = new mongoose.Schema(headlineSchema);
+    var ntSchema = new mongoose.Schema(noteSchema);
     hlineModel = connection.model('headline', hlineSchema);
+    ntModel = connection.model('note', ntSchema);
+
+    // Database configuration
+    var databaseUrl = "localhost/" + dbName;
+    var collections = ["headlines"];
+
+    // Hook mongojs config to db variable
+    mongojsDb = mongojs(databaseUrl, collections);
+
+    // Log any mongojs errors to console
+    mongojsDb.on("error", function (error) {
+      console.log("Database Error:", error);
+    });
 
     return this;
+  },
+
+  db: function() {
+    return mongojsDb;
   },
 
   insertMany: () => {
@@ -79,6 +110,5 @@ var database = {
   }
 };
 
-// Export the Headline model
 module.exports = database;
 
